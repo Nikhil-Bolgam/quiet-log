@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Quiet Log">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Quiet Log</title>
+<style>
+:root{--bg:#f6f8fa;--card:#fff;--bd:#d0d7de;--tx:#1f2328;--mut:#656d76;--acc:#0969da;--ok:#1a7f37;--bad:#cf222e;--amb:#9a6700;--in:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--card:#161b22;--bd:#30363d;--tx:#e6edf3;--mut:#8b949e;--acc:#58a6ff;--ok:#3fb950;--bad:#f85149;--amb:#d29922;--in:#0d1117}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:8px 0 2px}h2{font-size:15px;margin:0 0 12px}
+.sub{color:var(--mut);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:16px}
+label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--in);color:var(--tx);font:inherit}
+textarea{min-height:76px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tracks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.tracks button{padding:10px 6px;border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
+.tracks button.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset;font-weight:700}
+.go{width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+.go:disabled{opacity:.6;cursor:wait}
+.msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:14px;display:none}
+.msg.ok{display:block;background:rgba(26,127,55,.12);color:var(--ok)}.msg.bad{display:block;background:rgba(207,34,46,.12);color:var(--bad)}
+.stat{display:flex;gap:16px;flex-wrap:wrap;font-size:14px}.stat b{font-size:18px;display:block}.stat span{color:var(--mut);font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 4px;border-bottom:1px solid var(--bd)}th{color:var(--mut);font-weight:600}
+details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:var(--mut)}
+.ghost{width:100%;margin:0 0 12px;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--acc);font:inherit;font-weight:600;cursor:pointer}
+.only-dsa{display:none}.dsa .only-dsa{display:block}
+</style>
+</head>
+<body>
+<main>
+  <h1>Quiet Log</h1>
+  <p class="sub">Type your session below. A bot adds it to your log and refreshes the dashboard in about a minute.</p>
+
+  <section class="card" id="stats"><h2>Where you are</h2><div class="stat" id="statline"><span>Loading…</span></div></section>
+
+  <form class="card" id="form" autocomplete="off">
+    <h2>Log a session</h2>
+    <div class="row">
+      <div><label for="date">Date</label><input type="date" id="date"></div>
+      <div><label for="hours">Hours</label><input type="number" id="hours" step="0.25" min="0.25" max="12" placeholder="0.5" required></div>
+    </div>
+    <label>Track</label>
+    <div class="tracks" id="tracks">
+      <button type="button" data-v="DSA" class="on">DSA</button>
+      <button type="button" data-v="System design">System design</button>
+      <button type="button" data-v="Build">Build</button>
+      <button type="button" data-v="Study / cert">Study / cert</button>
+    </div>
+    <label for="topic">Topic or problem</label>
+    <input id="topic" placeholder="Two Sum (hash map)">
+    <div class="only-dsa" id="resbox">
+      <label for="result">Result (DSA only)</label>
+      <select id="result"><option>n/a</option><option>clean</option><option>hinted</option><option>failed</option></select>
+      <small>clean = solved alone in 25 min · hinted = needed a hint · failed = read the solution</small>
+    </div>
+    <label for="notes">Notes (what you did, what broke)</label>
+    <textarea id="notes" placeholder="Optional"></textarea>
+    <button class="go" id="go" type="submit">Log it</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <section class="card"><h2>Recent entries</h2><button id="lrefresh" class="ghost" type="button" hidden>Refresh widget and dashboard</button><div id="recent"><small>Loading…</small></div></section>
+
+  <details class="card" id="settings">
+    <summary>Settings (one-time setup)</summary>
+    <label for="repo">Repository</label><input id="repo" value="" placeholder="owner/repo" autocapitalize="off" autocorrect="off">
+    <label for="token">GitHub token</label><input id="token" type="password" placeholder="github_pat_…">
+    <p><small>Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>: repository access = only this repo; permissions = <b>Issues: Read and write</b> and <b>Contents: Read-only</b>. The token is stored only in this browser (localStorage) and sent only to api.github.com.</small></p>
+    <button type="button" class="go" id="save" style="background:var(--acc)">Save settings</button>
+  </details>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const load = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+let track = "DSA";
+const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+
+$("date").value = today();
+$("repo").value = load("cj_repo") || $("repo").value;
+$("token").value = load("cj_token");
+if (!$("token").value) $("settings").open = true;
+document.body.classList.add("dsa");
+
+$("tracks").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  track = b.dataset.v;
+  [...$("tracks").children].forEach(x => x.classList.toggle("on", x === b));
+  document.body.classList.toggle("dsa", track === "DSA");
+});
+$("save").onclick = () => { save("cj_repo", $("repo").value.trim()); save("cj_token", $("token").value.trim()); refresh(); show("Saved.", true); $("settings").open = false; };
+
+function show(text, ok) { const m = $("msg"); m.className = "msg " + (ok ? "ok" : "bad"); m.textContent = text; }
+function api(path, opts = {}) {
+  return fetch("https://api.github.com/repos/" + $("repo").value.trim() + path, {
+    ...opts, headers: { "Authorization": "Bearer " + $("token").value.trim(), "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) }
+  });
+}
+
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!$("token").value.trim()) { $("settings").open = true; return show("Add your token in Settings first.", false); }
+  const hours = $("hours").value;
+  const body = ["### Date", $("date").value, "### Track", track, "### Hours", hours,
+    "### Topic or problem", $("topic").value.trim() || "_No response_",
+    "### Result (DSA only)", track === "DSA" ? $("result").value : "n/a",
+    "### Notes", $("notes").value.trim() || "_No response_"].join("\n\n");
+  $("go").disabled = true; $("go").textContent = "Logging…";
+  try {
+    const r = await api("/issues", { method: "POST", body: JSON.stringify({ title: "log", body, labels: ["log"] }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.message || r.status);
+    show("Sent (issue #" + j.number + "). The dashboard updates in about a minute.", true);
+    $("hours").value = ""; $("topic").value = ""; $("notes").value = "";
+    setTimeout(refresh, 45000);
+  } catch (err) { show("Could not send: " + err.message, false); }
+  $("go").disabled = false; $("go").textContent = "Log it";
+});
+
+async function raw(path) {
+  const r = await api("/contents/" + path, { headers: { "Accept": "application/vnd.github.raw+json" } });
+  if (!r.ok) throw new Error(path + " " + r.status);
+  return r.text();
+}
+function csvRows(t) {
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < t.length; i++) { const c = t[i];
+    if (q) { if (c === '"' && t[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; } else if (c !== "\r") cur += c; }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+if (["127.0.0.1", "localhost"].includes(location.hostname)) {
+  const lb = $("lrefresh"); lb.hidden = false;
+  lb.onclick = async () => {
+    lb.disabled = true; lb.textContent = "Refreshing…";
+    try { await fetch("/refresh", { method: "POST" }); } catch (e) {}
+    lb.textContent = "Refresh widget and dashboard"; lb.disabled = false; refresh();
+  };
+}
+
+async function refresh() {
+  if (!$("token").value.trim()) { $("statline").innerHTML = "<span>Add your token in Settings to see progress.</span>"; $("recent").innerHTML = ""; return; }
+  try {
+    const p = JSON.parse(await raw("plan/data/progress.json"));
+    $("statline").innerHTML = `<div><b>Week ${p.current_week}</b><span>of 78</span></div><div><b>${p.hours_logged} h</b><span>logged of ${Math.round(p.hours_planned_to_date)} due</span></div><div><b>${p.tasks_done}/${p.tasks_total}</b><span>tasks</span></div><div style="flex-basis:100%"><span>${p.status}</span></div>`;
+  } catch (e) { $("statline").innerHTML = "<span>Could not load progress (" + e.message + ")</span>"; }
+  try {
+    const rows = csvRows(await raw("data/log.csv")).slice(1).filter(r => r.length > 3).slice(-8).reverse();
+    $("recent").innerHTML = rows.length ? "<table><tr><th>Date</th><th>Track</th><th>h</th><th>Topic</th></tr>" +
+      rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${(r[3] || "").replace(/</g, "&lt;")}${r[4] ? " · " + r[4] : ""}</td></tr>`).join("") + "</table>" : "<small>No entries yet.</small>";
+  } catch (e) { $("recent").innerHTML = "<small>Could not load entries (" + e.message + ")</small>"; }
+}
+refresh();
+</script>
+</body>
+</html>
