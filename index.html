@@ -36,7 +36,7 @@ textarea{min-height:76px;resize:vertical}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 4px;border-bottom:1px solid var(--bd)}th{color:var(--mut);font-weight:600}
 details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:var(--mut)}
 .ghost{width:100%;margin:0 0 12px;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--acc);font:inherit;font-weight:600;cursor:pointer}
-.only-dsa{display:none}.dsa .only-dsa{display:block}
+.only-dsa,.only-sd{display:none}.dsa .only-dsa,.sd .only-sd{display:block}
 </style>
 </head>
 <body>
@@ -61,12 +61,18 @@ details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:va
     </div>
     <label for="topic">Topic or problem</label>
     <input id="topic" placeholder="Two Sum">
-    <div class="only-dsa" id="dsabox">
-      <label for="link">Problem link</label>
+    <div class="only-dsa only-sd" id="linkbox">
+      <label for="link" id="linklabel">Problem link</label>
       <input id="link" type="url" inputmode="url" placeholder="https://platform.stratascratch.com/coding/10087-…" autocapitalize="off" autocorrect="off">
-      <small id="detected">Paste a NeetCode, StrataScratch or LeetCode link and I'll detect the platform and problem ID.</small>
+      <small id="detected">Paste the link and I'll detect the platform and ID.</small>
+    </div>
+    <div class="only-sd" id="sdbox">
+      <label for="notes_link">My notes link <small>(revision notes)</small></label>
+      <input id="notes_link" type="url" inputmode="url" placeholder="Link to your notes page for this topic" autocapitalize="off" autocorrect="off">
+    </div>
+    <div class="only-dsa" id="dsabox">
       <div class="row">
-        <div><label for="platform">Platform</label><select id="platform"><option>Auto</option><option>NeetCode</option><option>StrataScratch</option><option>LeetCode</option><option>Other</option></select></div>
+        <div><label for="platform">Platform</label><select id="platform"><option>Auto</option><option>NeetCode</option><option>StrataScratch</option><option>LeetCode</option><option>Educative</option><option>Other</option></select></div>
         <div><label for="kind">Kind</label><select id="kind"><option>Auto</option><option>Algorithm</option><option>SQL</option><option>Data/Python</option></select></div>
       </div>
       <div class="row">
@@ -76,10 +82,10 @@ details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:va
       <label for="minutes">Minutes taken <small>(25-minute box)</small></label>
       <input id="minutes" type="number" inputmode="numeric" min="1" max="600" placeholder="25">
     </div>
-    <div class="only-dsa" id="resbox">
-      <label for="result">Result (DSA only)</label>
+    <div class="only-dsa only-sd" id="resbox">
+      <label for="result" id="reslabel">Result</label>
       <select id="result"><option>n/a</option><option>clean</option><option>hinted</option><option>failed</option></select>
-      <small>clean = solved alone in 25 min · hinted = needed a hint · failed = read the solution</small>
+      <small id="reshelp"></small>
     </div>
     <label for="notes">How I solved it / notes</label>
     <textarea id="notes" placeholder="Your approach in a few lines, and what broke or what to remember"></textarea>
@@ -110,12 +116,23 @@ $("repo").value = load("cj_repo") || $("repo").value;
 $("token").value = load("cj_token");
 if (!$("token").value) $("settings").open = true;
 document.body.classList.add("dsa");
+const LABELS = {
+  "DSA": { link: "Problem link", ph: "https://platform.stratascratch.com/coding/10087-…", res: "Result", help: "clean = solved alone in 25 min · hinted = needed a hint · failed = read the solution" },
+  "System design": { link: "Topic link (Educative)", ph: "https://www.educative.io/courses/…/…", res: "Recall", help: "clean = recalled it without notes · hinted = needed a peek · failed = could not recall · n/a = first read (revise in 3 days). This sets your next revision date." }
+};
+function setLabels() {
+  const L = LABELS[track]; if (!L) return;
+  $("linklabel").textContent = L.link; $("link").placeholder = L.ph; $("reslabel").textContent = L.res; $("reshelp").textContent = L.help;
+}
+setLabels();
 
 $("tracks").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   track = b.dataset.v;
   [...$("tracks").children].forEach(x => x.classList.toggle("on", x === b));
   document.body.classList.toggle("dsa", track === "DSA");
+  document.body.classList.toggle("sd", track === "System design");
+  setLabels();
 });
 $("save").onclick = () => { save("cj_repo", $("repo").value.trim()); save("cj_token", $("token").value.trim()); refresh(); show("Saved.", true); $("settings").open = false; };
 
@@ -138,11 +155,12 @@ function parseLink(url) {
   }
   if (on("neetcode.io")) return { platform: "NeetCode", id: after("problems") || segs[segs.length - 1] || "", kind: "Algorithm" };
   if (on("leetcode.com")) return { platform: "LeetCode", id: after("problems") || segs[segs.length - 1] || "", kind: "Algorithm" };
+  if (on("educative.io")) return { platform: "Educative", id: segs.slice(-2).join("/").toLowerCase(), kind: "" };
   return { platform: "Other", id: segs[segs.length - 1] || "", kind: "" };
 }
 $("link").addEventListener("input", () => {
   const r = parseLink($("link").value), d = $("detected");
-  if (!r) d.textContent = "Paste a NeetCode, StrataScratch or LeetCode link and I'll detect the platform and problem ID.";
+  if (!r) d.textContent = "Paste the link and I'll detect the platform and ID.";
   else if (r.bad) d.textContent = "That doesn't look like a web link (it must start with https://).";
   else d.textContent = "Detected: " + r.platform + (r.id ? " · ID " + r.id : "") + (r.kind ? " · " + r.kind : "") + " (change Platform or Kind to override)";
 });
@@ -157,21 +175,24 @@ function api(path, opts = {}) {
 $("form").addEventListener("submit", async e => {
   e.preventDefault();
   if (!$("token").value.trim()) { $("settings").open = true; return show("Add your token in Settings first.", false); }
-  const hours = $("hours").value.trim().replace(",", "."), minutes = $("minutes").value.trim().replace(",", "."), dsa = track === "DSA";
+  const dsa = track === "DSA", sd = track === "System design";
+  const hours = $("hours").value.trim().replace(",", "."), minutes = $("minutes").value.trim().replace(",", ".");
   if (hours && !/^\d+(\.\d+)?\s*(h|hr|hrs|m|min|mins|minutes)?$/i.test(hours)) return show("Hours looks wrong. Try 0.5, 1h or 25m.", false);
   if (minutes && !(Number(minutes) > 0)) return show("Minutes taken must be a positive number.", false);
   if (!hours && !(dsa && minutes)) return show("Enter Hours" + (dsa ? " or Minutes taken" : "") + ".", false);
-  if (dsa && $("link").value.trim() && parseLink($("link").value).bad) return show("The problem link must start with https://", false);
+  if ((dsa || sd) && $("link").value.trim() && parseLink($("link").value).bad) return show("The link must start with https://", false);
+  if (sd && $("notes_link").value.trim() && parseLink($("notes_link").value).bad) return show("The notes link must start with https://", false);
   const opt = (v, empty) => (v && v.trim()) ? neutral(v.trim()) : (empty || "_No response_");
   const body = ["### Date", $("date").value, "### Track", track, "### Hours", opt(hours),
     "### Topic or problem", opt($("topic").value),
-    "### Problem link", dsa ? opt($("link").value) : "_No response_",
+    "### Problem link", (dsa || sd) ? opt($("link").value) : "_No response_",
     "### Platform", dsa ? $("platform").value : "Auto",
     "### Kind", dsa ? $("kind").value : "Auto",
     "### Pattern", dsa ? opt($("pattern").value) : "_No response_",
     "### Difficulty", dsa ? $("difficulty").value : "n/a",
     "### Minutes taken", dsa ? opt(minutes) : "_No response_",
-    "### Result (DSA only)", dsa ? $("result").value : "n/a",
+    "### Result", (dsa || sd) ? $("result").value : "n/a",
+    "### My notes link", sd ? opt($("notes_link").value) : "_No response_",
     "### How I solved it / notes", opt($("notes").value)].join("\n\n");
   $("go").disabled = true; $("go").textContent = "Logging…";
   try {
@@ -180,7 +201,7 @@ $("form").addEventListener("submit", async e => {
     if (!r.ok) throw new Error(j.message || r.status);
     show("Sent" + (j.number ? " (issue #" + j.number + ")" : "") + ". The dashboard updates in about a minute.", true);
     $("date").value = today(); $("date").max = today();
-    ["hours", "topic", "notes", "link", "pattern", "minutes"].forEach(id => { $(id).value = ""; });
+    ["hours", "topic", "notes", "link", "pattern", "minutes", "notes_link"].forEach(id => { $(id).value = ""; });
     $("platform").value = "Auto"; $("kind").value = "Auto"; $("difficulty").value = "n/a"; $("result").value = "n/a"; $("link").dispatchEvent(new Event("input"));
     setTimeout(refresh, 45000);
   } catch (err) { show("Could not send: " + err.message, false); }
@@ -226,6 +247,18 @@ async function refresh() {
       }).join("") + "</table>" : "<small>No entries yet.</small>";
   } catch (e) { $("recent").innerHTML = "<small>Could not load entries (" + esc(e.message) + ")</small>"; }
 }
+(function prefill() {
+  const q = new URLSearchParams(location.search);
+  const tr = (q.get("track") || "").toLowerCase();
+  if (tr === "dsa" || tr === "sd") {
+    const b = [...$("tracks").children].find(x => x.dataset.v === (tr === "dsa" ? "DSA" : "System design"));
+    if (b) b.click();
+  }
+  if (q.get("link")) { $("link").value = q.get("link"); $("link").dispatchEvent(new Event("input")); }
+  if (q.get("topic")) $("topic").value = q.get("topic");
+  if (q.get("notes_link") && tr === "sd") $("notes_link").value = q.get("notes_link");
+})();
+
 refresh();
 </script>
 </body>
