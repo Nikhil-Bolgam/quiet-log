@@ -14,28 +14,37 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://api.github.com; img-src 'self' data:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Quiet Log</title>
 <style>
-:root{--bg:#f6f8fa;--card:#fff;--bd:#d0d7de;--tx:#1f2328;--mut:#656d76;--acc:#0969da;--ok:#1a7f37;--bad:#cf222e;--amb:#9a6700;--in:#fff}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--card:#161b22;--bd:#30363d;--tx:#e6edf3;--mut:#8b949e;--acc:#58a6ff;--ok:#3fb950;--bad:#f85149;--amb:#d29922;--in:#0d1117}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
-main{max-width:640px;margin:0 auto;padding:20px 16px 60px}
-h1{font-size:22px;margin:8px 0 2px}h2{font-size:15px;margin:0 0 12px}
-.sub{color:var(--mut);margin:0 0 18px}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:16px}
-label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
-input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--in);color:var(--tx);font:inherit}
-textarea{min-height:76px;resize:vertical}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tracks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
-.tracks button{padding:10px 6px;border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
-.tracks button.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset;font-weight:700}
-.go{width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+/* TOKENS:START */
+:root{--bg:#F5F5F7;--card:#FFFFFF;--bd:#D2D2D7;--tx:#1D1D1F;--mut:#6E6E73;--in:#FFFFFF;--seg:#EFEFF4;--dsa:#007AFF;--sd:#AF52DE;--build:#34C759;--study:#FF9500;--acc:#007AFF;--bad:#FF3B30;--amb:#FF9500;--grey:#8E8E93;--font:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;--s1:4px;--s2:8px;--s3:16px;--s4:24px;--r1:8px;--r2:12px;--r3:999px}
+@media (prefers-color-scheme:dark){:root{--bg:#000000;--card:#1C1C1E;--bd:#38383A;--tx:#F5F5F7;--mut:#98989D;--in:#2C2C2E;--seg:#2C2C2E;--dsa:#0A84FF;--sd:#BF5AF2;--build:#30D158;--study:#FF9F0A;--acc:#0A84FF;--bad:#FF453A;--amb:#FF9F0A;--grey:#8E8E93}}
+/* TOKENS:END */
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 var(--font)}
+main{max-width:640px;margin:0 auto;padding:var(--s3) var(--s3) 64px}
+h1{font-size:28px;margin:var(--s2) 0 var(--s1);font-weight:700}h2{font-size:17px;margin:0 0 var(--s2);font-weight:600}
+.sub{color:var(--mut);margin:0 0 var(--s3);font-size:13px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r2);padding:var(--s3);margin-bottom:var(--s3)}
+label{display:block;font-weight:600;font-size:13px;margin:var(--s3) 0 var(--s1)}
+input,select,textarea{width:100%;padding:8px 12px;border:1px solid var(--bd);border-radius:var(--r1);background:var(--in);color:var(--tx);font:inherit}
+textarea{min-height:80px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+.seg{display:flex;gap:var(--s1);padding:var(--s1);background:var(--seg);border-radius:var(--r1);margin-top:var(--s1)}
+.seg button{flex:1;min-width:0;padding:8px var(--s1);border:0;border-radius:6px;background:transparent;color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
+.seg button.on{color:#fff;font-weight:600}
+.seg button.on[data-k=dsa]{background:var(--dsa)}.seg button.on[data-k=sd]{background:var(--sd)}.seg button.on[data-k=build]{background:var(--build)}.seg button.on[data-k=study]{background:var(--study)}
+.link{display:inline-block;margin-top:var(--s2);padding:0;border:0;background:none;color:var(--acc);font:inherit;font-size:13px;cursor:pointer}
+#plannote{margin-top:var(--s2);padding:8px 12px;border-radius:var(--r1);font-size:13px;color:var(--amb);background:rgba(255,149,0,.1)}
+#plannote:empty{display:none}
+.planned{margin:var(--s2) 0 0;padding:0;list-style:none;border:1px solid var(--bd);border-radius:var(--r1);font-size:13px}
+.planned li{display:flex;gap:var(--s2);padding:var(--s1) 12px;border-bottom:1px solid var(--bd)}.planned li:last-child{border-bottom:0}
+.planned .t{width:64px;color:var(--mut);flex:none}.planned .n{flex:1}.planned .h{color:var(--mut)}.planned .st{color:var(--mut);min-width:96px;text-align:right}
+.go{width:100%;margin-top:var(--s3);padding:12px;border:0;border-radius:var(--r2);background:var(--acc);color:#fff;font:inherit;font-weight:600;font-size:17px;cursor:pointer}
 .go:disabled{opacity:.6;cursor:wait}
-.msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:14px;display:none}
-.msg.ok{display:block;background:rgba(26,127,55,.12);color:var(--ok)}.msg.bad{display:block;background:rgba(207,34,46,.12);color:var(--bad)}
-.stat{display:flex;gap:16px;flex-wrap:wrap;font-size:14px}.stat b{font-size:18px;display:block}.stat span{color:var(--mut);font-size:12px}
-table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 4px;border-bottom:1px solid var(--bd)}th{color:var(--mut);font-weight:600}
+.msg{margin-top:12px;padding:8px 12px;border-radius:var(--r1);font-size:13px;display:none}
+.msg.ok{display:block;background:rgba(52,199,89,.12);color:var(--build)}.msg.bad{display:block;background:rgba(255,59,48,.12);color:var(--bad)}
+.stat{display:flex;gap:var(--s3);flex-wrap:wrap;font-size:13px}.stat b{font-size:22px;display:block}.stat span{color:var(--mut);font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:8px 4px;border-bottom:1px solid var(--bd)}th{color:var(--mut);font-weight:600}
 details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:var(--mut)}
-.ghost{width:100%;margin:0 0 12px;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--in);color:var(--acc);font:inherit;font-weight:600;cursor:pointer}
+.ghost{width:100%;margin:0 0 12px;padding:8px;border:1px solid var(--bd);border-radius:var(--r1);background:var(--in);color:var(--acc);font:inherit;font-weight:600;cursor:pointer}
 .only-dsa,.only-sd{display:none}.dsa .only-dsa,.sd .only-sd{display:block}
 </style>
 </head>
@@ -52,13 +61,11 @@ details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:va
       <div><label for="date">Date</label><input type="date" id="date"></div>
       <div><label for="hours">Hours <small>(or 25m)</small></label><input type="text" id="hours" inputmode="decimal" placeholder="0.5" autocomplete="off"></div>
     </div>
-    <label>Track</label>
-    <div class="tracks" id="tracks">
-      <button type="button" data-v="DSA" class="on">DSA</button>
-      <button type="button" data-v="System design">System design</button>
-      <button type="button" data-v="Build">Build</button>
-      <button type="button" data-v="Study / cert">Study / cert</button>
-    </div>
+    <div id="planned" class="planned" hidden></div>
+    <label id="tracklabel">Track</label>
+    <div class="seg" id="tracks" role="group" aria-labelledby="tracklabel"></div>
+    <button type="button" class="link" id="more" hidden>Log a different track</button>
+    <div id="plannote" role="status" aria-live="polite"></div>
     <label for="topic">Topic or problem</label>
     <input id="topic" placeholder="Two Sum">
     <div class="only-dsa only-sd" id="linkbox">
@@ -100,22 +107,110 @@ details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:va
     <label for="repo">Repository</label><input id="repo" value="" placeholder="owner/repo" autocapitalize="off" autocorrect="off">
     <label for="token">GitHub token</label><input id="token" type="password" placeholder="github_pat_…">
     <p><small>Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>: repository access = only this repo; permissions = <b>Issues: Read and write</b> and <b>Contents: Read-only</b>. The token is stored only in this browser (localStorage) and sent only to api.github.com.</small></p>
-    <button type="button" class="go" id="save" style="background:var(--acc)">Save settings</button>
+    <button type="button" class="go" id="save">Save settings</button>
   </details>
 </main>
+<script id="logic">
+const TRACK_KEYS = ["dsa", "sd", "build", "study"];
+const DEFAULT_NAMES = { dsa: "DSA", sd: "System design", build: "Build", study: "Study / cert" };
+const EPS = 1e-6;
+
+function todayIn(tz, now = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(now).map(x => [x.type, x.value]));
+  return p.year + "-" + p.month + "-" + p.day;
+}
+
+const byStart = slots => [...slots].sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+
+// Fill each track's slots in time order with that track's logged hours.
+function slotStates(slots, logged) {
+  const left = { ...logged };
+  return byStart(slots).map(s => {
+    const have = Math.max(0, left[s.track] || 0), take = Math.min(have, s.hours);
+    left[s.track] = have - take;
+    const done = take >= s.hours - EPS;
+    return { slot: s, status: done ? "Logged" : take > EPS ? "Partly logged" : "" };
+  });
+}
+
+function defaultTrack(slots, logged) {
+  if (!slots || !slots.length) return { track: null, allLogged: false };
+  const st = slotStates(slots, logged || {});
+  const open = st.find(x => x.status !== "Logged");
+  return open ? { track: open.slot.track, allLogged: false } : { track: st[0].slot.track, allLogged: true };
+}
+
+function loggedFor(rows, iso) {
+  const out = {};
+  for (const r of rows || []) {
+    if (!r || r[0] !== iso) continue;
+    const h = parseFloat(r[2]);
+    if (h > 0) out[r[1]] = (out[r[1]] || 0) + h;
+  }
+  return out;
+}
+
+const joinNames = n => n.length < 2 ? n.join("") : n.slice(0, -1).join(", ") + " and " + n[n.length - 1];
+
+function offPlanNote(dayName, plannedNames, chosenName, outstandingNames = []) {
+  let t = dayName + " is planned for " + joinNames(plannedNames) + ". This will count as " + chosenName + " make-up";
+  t += outstandingNames.length ? "; the " + joinNames(outstandingNames) + " time stays outstanding." : ".";
+  return t;
+}
+
+function clock(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return ((h + 11) % 12 + 1) + ":" + String(m).padStart(2, "0") + " " + (h < 12 ? "AM" : "PM");
+}
+
+function planState(plan, rows, iso, chosen, prefill) {
+  const names = { ...DEFAULT_NAMES, ...((plan && plan.tracks) || {}) };
+  const valid = k => TRACK_KEYS.includes(k) ? k : null;
+  const slots = plan && plan.days && Array.isArray(plan.days[iso]) ? byStart(plan.days[iso]) : [];
+  if (!slots.length) {
+    return { buttons: [...TRACK_KEYS], extra: [], selected: valid(prefill) || valid(chosen) || "dsa", offPlan: false, note: "", slotsLine: [] };
+  }
+  const logged = loggedFor(rows, iso), states = slotStates(slots, logged);
+  const buttons = [...new Set(slots.map(s => s.track))].filter(valid);
+  const extra = TRACK_KEYS.filter(k => !buttons.includes(k));
+  const dayName = new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+  const def = defaultTrack(slots, logged);
+  const pre = valid(prefill);
+  let selected, offPlan = false, note = "";
+  if (pre) selected = pre;
+  else if (valid(chosen) && buttons.includes(chosen)) selected = chosen;
+  else { selected = def.track; if (def.allLogged) note = "Everything planned for " + dayName + " is logged. Extra time still counts toward your balance."; }
+  if (!buttons.includes(selected)) {
+    offPlan = true;
+    const outstanding = [...new Set(states.filter(x => x.status !== "Logged").map(x => names[x.slot.track]))];
+    note = offPlanNote(dayName, buttons.map(k => names[k]), names[selected], outstanding);
+  }
+  const slotsLine = states.map(x => ({
+    time: clock(x.slot.start),
+    name: x.slot.label && x.slot.label !== names[x.slot.track] ? x.slot.label : names[x.slot.track],
+    track: x.slot.track,
+    hours: x.slot.hours + " h",
+    status: x.status
+  }));
+  return { buttons, extra, selected, offPlan, note, slotsLine };
+}
+</script>
 <script>
 const $ = id => document.getElementById(id);
 const load = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
 const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const NAMES = { dsa: "DSA", sd: "System design", build: "Build", study: "Study / cert" };
 let track = "DSA";
-const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+let plan = null, logRows = [], chosen = null, pinned = null, showExtra = false;
+const TZ = () => (plan && plan.timezone) || "America/Los_Angeles";
+const today = () => todayIn(TZ());
 
 $("date").value = today();
 $("date").max = today();
 $("repo").value = load("cj_repo") || $("repo").value;
 $("token").value = load("cj_token");
 if (!$("token").value) $("settings").open = true;
-document.body.classList.add("dsa");
 const LABELS = {
   "DSA": { link: "Problem link", ph: "https://platform.stratascratch.com/coding/10087-…", res: "Result", help: "clean = solved alone in 25 min · hinted = needed a hint · failed = read the solution" },
   "System design": { link: "Topic link (Educative)", ph: "https://www.educative.io/courses/…/…", res: "Recall", help: "clean = recalled it without notes · hinted = needed a peek · failed = could not recall · n/a = first read (revise in 3 days). This sets your next revision date." }
@@ -126,14 +221,31 @@ function setLabels() {
 }
 setLabels();
 
+function applyTrack(key) {
+  track = NAMES[key];
+  document.body.classList.toggle("dsa", key === "dsa");
+  document.body.classList.toggle("sd", key === "sd");
+  setLabels();
+}
+function render() {
+  const ps = planState(plan, logRows, $("date").value, chosen, pinned);
+  const keys = showExtra || ps.offPlan ? [...ps.buttons, ...ps.extra] : ps.buttons;
+  if (!keys.includes(ps.selected)) keys.push(ps.selected);
+  $("tracks").innerHTML = keys.map(k => `<button type="button" data-k="${k}" aria-pressed="${k === ps.selected}" class="${k === ps.selected ? "on" : ""}">${esc(NAMES[k])}</button>`).join("");
+  $("more").hidden = !ps.extra.length || showExtra || ps.offPlan;
+  $("plannote").textContent = ps.note;
+  const pl = $("planned");
+  pl.hidden = !ps.slotsLine.length;
+  pl.innerHTML = ps.slotsLine.map(x => `<li><span class="t">${esc(x.time)}</span><span class="n">${esc(x.name)}</span><span class="h">${esc(x.hours)}</span><span class="st">${esc(x.status)}</span></li>`).join("");
+  applyTrack(ps.selected);
+}
 $("tracks").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  track = b.dataset.v;
-  [...$("tracks").children].forEach(x => x.classList.toggle("on", x === b));
-  document.body.classList.toggle("dsa", track === "DSA");
-  document.body.classList.toggle("sd", track === "System design");
-  setLabels();
+  chosen = pinned = b.dataset.k;
+  render();
 });
+$("more").onclick = () => { showExtra = true; render(); };
+$("date").addEventListener("change", () => { pinned = null; showExtra = false; render(); });
 $("save").onclick = () => { save("cj_repo", $("repo").value.trim()); save("cj_token", $("token").value.trim()); refresh(); show("Saved.", true); $("settings").open = false; };
 
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -200,7 +312,7 @@ $("form").addEventListener("submit", async e => {
     let j = {}; try { j = JSON.parse(await r.text()); } catch (e) {}
     if (!r.ok) throw new Error(j.message || r.status);
     show("Sent" + (j.number ? " (issue #" + j.number + ")" : "") + ". The dashboard updates in about a minute.", true);
-    $("date").value = today(); $("date").max = today();
+    $("date").value = today(); $("date").max = today(); pinned = null; showExtra = false; render();
     ["hours", "topic", "notes", "link", "pattern", "minutes", "notes_link"].forEach(id => { $(id).value = ""; });
     $("platform").value = "Auto"; $("kind").value = "Auto"; $("difficulty").value = "n/a"; $("result").value = "n/a"; $("link").dispatchEvent(new Event("input"));
     setTimeout(refresh, 45000);
@@ -238,7 +350,14 @@ async function refresh() {
     $("statline").innerHTML = `<div><b>Week ${esc(p.current_week)}</b><span>of 78</span></div><div><b>${esc(p.hours_logged)} h</b><span>logged of ${esc(Math.round(p.hours_planned_to_date))} due</span></div><div><b>${esc(p.tasks_done)}/${esc(p.tasks_total)}</b><span>tasks</span></div><div style="flex-basis:100%"><span>${esc(p.status)}</span></div>`;
   } catch (e) { $("statline").innerHTML = "<span>Could not load progress (" + esc(e.message) + ")</span>"; }
   try {
-    const rows = csvRows(await raw("data/log.csv")).slice(1).filter(r => r.length > 3).slice(-8).reverse();
+    plan = JSON.parse(await raw("plan/data/planned.json"));
+    $("date").max = today();
+  } catch (e) { plan = null; }
+  render();
+  try {
+    const all = csvRows(await raw("data/log.csv")).slice(1).filter(r => r.length > 3);
+    logRows = all; render();
+    const rows = all.slice(-8).reverse();
     $("recent").innerHTML = rows.length ? "<table><tr><th>Date</th><th>Track</th><th>h</th><th>Topic</th></tr>" +
       rows.map(r => {
         const label = esc(r[3] || r[8] || ""), link = /^https?:\/\//i.test(r[9] || "") ? r[9] : "";
@@ -250,15 +369,13 @@ async function refresh() {
 (function prefill() {
   const q = new URLSearchParams(location.search);
   const tr = (q.get("track") || "").toLowerCase();
-  if (tr === "dsa" || tr === "sd") {
-    const b = [...$("tracks").children].find(x => x.dataset.v === (tr === "dsa" ? "DSA" : "System design"));
-    if (b) b.click();
-  }
+  if (tr === "dsa" || tr === "sd") chosen = pinned = tr;
   if (q.get("link")) { $("link").value = q.get("link"); $("link").dispatchEvent(new Event("input")); }
   if (q.get("topic")) $("topic").value = q.get("topic");
   if (q.get("notes_link") && tr === "sd") $("notes_link").value = q.get("notes_link");
 })();
 
+render();
 refresh();
 </script>
 </body>
