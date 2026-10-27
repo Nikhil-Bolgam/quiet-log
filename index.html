@@ -30,6 +30,7 @@ textarea{min-height:80px;resize:vertical}
 .seg{display:flex;gap:var(--s1);padding:var(--s1);background:var(--seg);border-radius:var(--r1);margin-top:var(--s1)}
 .seg button{flex:1;min-width:0;padding:8px var(--s1);border:0;border-radius:6px;background:transparent;color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
 .seg button.on{color:#fff;font-weight:600}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
 .seg button.on[data-k=dsa]{background:var(--dsa)}.seg button.on[data-k=sd]{background:var(--sd)}.seg button.on[data-k=build]{background:var(--build)}.seg button.on[data-k=study]{background:var(--study)}
 .link{display:inline-block;margin-top:var(--s2);padding:0;border:0;background:none;color:var(--acc);font:inherit;font-size:13px;cursor:pointer}
 #plannote{margin-top:var(--s2);padding:8px 12px;border-radius:var(--r1);font-size:13px;color:var(--amb);background:rgba(255,149,0,.1)}
@@ -64,7 +65,6 @@ details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:va
     <div id="planned" class="planned" hidden></div>
     <label id="tracklabel">Track</label>
     <div class="seg" id="tracks" role="group" aria-labelledby="tracklabel"></div>
-    <button type="button" class="link" id="more" hidden>Log a different track</button>
     <div id="plannote" role="status" aria-live="polite"></div>
     <label for="topic">Topic or problem</label>
     <input id="topic" placeholder="Two Sum">
@@ -153,10 +153,8 @@ function loggedFor(rows, iso) {
 
 const joinNames = n => n.length < 2 ? n.join("") : n.slice(0, -1).join(", ") + " and " + n[n.length - 1];
 
-function offPlanNote(dayName, plannedNames, chosenName, outstandingNames = []) {
-  let t = dayName + " is planned for " + joinNames(plannedNames) + ". This will count as " + chosenName + " make-up";
-  t += outstandingNames.length ? "; the " + joinNames(outstandingNames) + " time stays outstanding." : ".";
-  return t;
+function notPlannedNote(dayName, name) {
+  return name + " isn't planned on " + dayName + ", so it is locked. Log it on a date that has a " + name + " session.";
 }
 
 function clock(hhmm) {
@@ -164,28 +162,25 @@ function clock(hhmm) {
   return ((h + 11) % 12 + 1) + ":" + String(m).padStart(2, "0") + " " + (h < 12 ? "AM" : "PM");
 }
 
+// Only the tracks planned on the chosen date can be logged; the others are frozen.
 function planState(plan, rows, iso, chosen, prefill) {
   const names = { ...DEFAULT_NAMES, ...((plan && plan.tracks) || {}) };
   const valid = k => TRACK_KEYS.includes(k) ? k : null;
   const slots = plan && plan.days && Array.isArray(plan.days[iso]) ? byStart(plan.days[iso]) : [];
   if (!slots.length) {
-    return { buttons: [...TRACK_KEYS], extra: [], selected: valid(prefill) || valid(chosen) || "dsa", offPlan: false, note: "", slotsLine: [] };
+    return { buttons: [...TRACK_KEYS], planned: [...TRACK_KEYS], frozen: [], selected: valid(prefill) || valid(chosen) || "dsa", note: "", slotsLine: [] };
   }
   const logged = loggedFor(rows, iso), states = slotStates(slots, logged);
-  const buttons = [...new Set(slots.map(s => s.track))].filter(valid);
-  const extra = TRACK_KEYS.filter(k => !buttons.includes(k));
+  const planned = [...new Set(slots.map(s => s.track))].filter(valid);
+  const frozen = TRACK_KEYS.filter(k => !planned.includes(k));
   const dayName = new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
   const def = defaultTrack(slots, logged);
   const pre = valid(prefill);
-  let selected, offPlan = false, note = "";
-  if (pre) selected = pre;
-  else if (valid(chosen) && buttons.includes(chosen)) selected = chosen;
+  let selected, note = "";
+  if (pre && planned.includes(pre)) selected = pre;
+  else if (valid(chosen) && planned.includes(chosen)) selected = chosen;
   else { selected = def.track; if (def.allLogged) note = "Everything planned for " + dayName + " is logged. Extra time still counts toward your balance."; }
-  if (!buttons.includes(selected)) {
-    offPlan = true;
-    const outstanding = [...new Set(states.filter(x => x.status !== "Logged").map(x => names[x.slot.track]))];
-    note = offPlanNote(dayName, buttons.map(k => names[k]), names[selected], outstanding);
-  }
+  if (pre && !planned.includes(pre)) note = notPlannedNote(dayName, names[pre]);
   const slotsLine = states.map(x => ({
     time: clock(x.slot.start),
     name: x.slot.label && x.slot.label !== names[x.slot.track] ? x.slot.label : names[x.slot.track],
@@ -193,7 +188,7 @@ function planState(plan, rows, iso, chosen, prefill) {
     hours: x.slot.hours + " h",
     status: x.status
   }));
-  return { buttons, extra, selected, offPlan, note, slotsLine };
+  return { buttons: [...TRACK_KEYS], planned, frozen, selected, note, slotsLine };
 }
 </script>
 <script>
@@ -202,7 +197,7 @@ const load = k => { try { return localStorage.getItem(k) || ""; } catch (e) { re
 const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const NAMES = { dsa: "DSA", sd: "System design", build: "Build", study: "Study / cert" };
 let track = "DSA";
-let plan = null, logRows = [], chosen = null, pinned = null, showExtra = false;
+let plan = null, logRows = [], chosen = null, pinned = null, frozen = [];
 const TZ = () => (plan && plan.timezone) || "America/Los_Angeles";
 const today = () => todayIn(TZ());
 
@@ -229,23 +224,23 @@ function applyTrack(key) {
 }
 function render() {
   const ps = planState(plan, logRows, $("date").value, chosen, pinned);
-  const keys = showExtra || ps.offPlan ? [...ps.buttons, ...ps.extra] : ps.buttons;
-  if (!keys.includes(ps.selected)) keys.push(ps.selected);
-  $("tracks").innerHTML = keys.map(k => `<button type="button" data-k="${k}" aria-pressed="${k === ps.selected}" class="${k === ps.selected ? "on" : ""}">${esc(NAMES[k])}</button>`).join("");
-  $("more").hidden = !ps.extra.length || showExtra || ps.offPlan;
-  $("plannote").textContent = ps.note;
+  frozen = ps.frozen;
+  $("tracks").innerHTML = ps.buttons.map(k => {
+    const off = frozen.includes(k);
+    return `<button type="button" data-k="${k}" aria-pressed="${k === ps.selected}" class="${k === ps.selected ? "on" : ""}"${off ? ' disabled title="Not planned on this date"' : ""}>${esc(NAMES[k])}</button>`;
+  }).join("");
+  $("plannote").textContent = ps.note || (plan ? "" : "Your plan hasn't loaded (check the token in Settings), so every track is shown. The bot still only accepts sessions planned for the chosen date.");
   const pl = $("planned");
   pl.hidden = !ps.slotsLine.length;
   pl.innerHTML = ps.slotsLine.map(x => `<li><span class="t">${esc(x.time)}</span><span class="n">${esc(x.name)}</span><span class="h">${esc(x.hours)}</span><span class="st">${esc(x.status)}</span></li>`).join("");
   applyTrack(ps.selected);
 }
 $("tracks").addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return;
+  const b = e.target.closest("button"); if (!b || b.disabled) return;
   chosen = pinned = b.dataset.k;
   render();
 });
-$("more").onclick = () => { showExtra = true; render(); };
-$("date").addEventListener("change", () => { pinned = null; showExtra = false; render(); });
+$("date").addEventListener("change", () => { pinned = null; render(); });
 $("save").onclick = () => { save("cj_repo", $("repo").value.trim()); save("cj_token", $("token").value.trim()); refresh(); show("Saved.", true); $("settings").open = false; };
 
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -287,6 +282,7 @@ function api(path, opts = {}) {
 $("form").addEventListener("submit", async e => {
   e.preventDefault();
   if (!$("token").value.trim()) { $("settings").open = true; return show("Add your token in Settings first.", false); }
+  if (frozen.some(k => NAMES[k] === track)) return show(track + " isn't planned on this date. Pick a planned session.", false);
   const dsa = track === "DSA", sd = track === "System design";
   const hours = $("hours").value.trim().replace(",", "."), minutes = $("minutes").value.trim().replace(",", ".");
   if (hours && !/^\d+(\.\d+)?\s*(h|hr|hrs|m|min|mins|minutes)?$/i.test(hours)) return show("Hours looks wrong. Try 0.5, 1h or 25m.", false);
@@ -312,7 +308,7 @@ $("form").addEventListener("submit", async e => {
     let j = {}; try { j = JSON.parse(await r.text()); } catch (e) {}
     if (!r.ok) throw new Error(j.message || r.status);
     show("Sent" + (j.number ? " (issue #" + j.number + ")" : "") + ". The dashboard updates in about a minute.", true);
-    $("date").value = today(); $("date").max = today(); pinned = null; showExtra = false; render();
+    $("date").value = today(); $("date").max = today(); pinned = null; render();
     ["hours", "topic", "notes", "link", "pattern", "minutes", "notes_link"].forEach(id => { $(id).value = ""; });
     $("platform").value = "Auto"; $("kind").value = "Auto"; $("difficulty").value = "n/a"; $("result").value = "n/a"; $("link").dispatchEvent(new Event("input"));
     setTimeout(refresh, 45000);
@@ -369,7 +365,7 @@ async function refresh() {
 (function prefill() {
   const q = new URLSearchParams(location.search);
   const tr = (q.get("track") || "").toLowerCase();
-  if (tr === "dsa" || tr === "sd") chosen = pinned = tr;
+  if (tr === "dsa" || tr === "sd") pinned = tr;
   if (q.get("link")) { $("link").value = q.get("link"); $("link").dispatchEvent(new Event("input")); }
   if (q.get("topic")) $("topic").value = q.get("topic");
   if (q.get("notes_link") && tr === "sd") $("notes_link").value = q.get("notes_link");
