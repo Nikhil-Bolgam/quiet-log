@@ -39,14 +39,17 @@ textarea{min-height:80px;resize:vertical}
 .planned li{display:flex;gap:var(--s2);padding:var(--s1) 12px;border-bottom:1px solid var(--bd)}.planned li:last-child{border-bottom:0}
 .planned .t{width:64px;color:var(--mut);flex:none}.planned .n{flex:1}.planned .h{color:var(--mut)}.planned .st{color:var(--mut);min-width:96px;text-align:right}
 .go{width:100%;margin-top:var(--s3);padding:12px;border:0;border-radius:var(--r2);background:var(--acc);color:#fff;font:inherit;font-weight:600;font-size:17px;cursor:pointer}
-.go:disabled{opacity:.6;cursor:wait}
+.go:disabled{opacity:.35;cursor:not-allowed}
 .msg{margin-top:12px;padding:8px 12px;border-radius:var(--r1);font-size:13px;display:none}
 .msg.ok{display:block;background:rgba(52,199,89,.12);color:var(--build)}.msg.bad{display:block;background:rgba(255,59,48,.12);color:var(--bad)}
 .stat{display:flex;gap:var(--s3);flex-wrap:wrap;font-size:13px}.stat b{font-size:22px;display:block}.stat span{color:var(--mut);font-size:12px}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:8px 4px;border-bottom:1px solid var(--bd)}th{color:var(--mut);font-weight:600}
 details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:var(--mut)}
 .ghost{width:100%;margin:0 0 12px;padding:8px;border:1px solid var(--bd);border-radius:var(--r1);background:var(--in);color:var(--acc);font:inherit;font-weight:600;cursor:pointer}
-.only-dsa,.only-sd{display:none}.dsa .only-dsa,.sd .only-sd{display:block}
+.only-dsa,.only-sd{display:none}.dsa .only-dsa,.sd .only-sd{display:block}.dsa .not-dsa{display:none}
+.err{display:block;color:var(--bad);font-size:12px;margin-top:2px}.err:empty{display:none}
+[aria-invalid=true]{border-color:var(--bad)}
+#missing{margin-top:var(--s2);font-size:13px;color:var(--mut);text-align:center}#missing:empty{display:none}
 </style>
 </head>
 <body>
@@ -60,7 +63,7 @@ details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:va
     <h2>Log a session</h2>
     <div class="row">
       <div><label for="date">Date</label><input type="date" id="date"></div>
-      <div><label for="hours">Hours <small>(or 25m)</small></label><input type="text" id="hours" inputmode="decimal" placeholder="0.5" autocomplete="off"></div>
+      <div class="not-dsa"><label for="hours">Hours <small>(or 25m)</small></label><input type="text" id="hours" inputmode="decimal" placeholder="0.5" autocomplete="off"></div>
     </div>
     <div id="planned" class="planned" hidden></div>
     <label id="tracklabel">Track</label>
@@ -84,19 +87,24 @@ details summary{cursor:pointer;font-weight:600}a{color:var(--acc)}small{color:va
       </div>
       <div class="row">
         <div><label for="pattern">Pattern</label><input id="pattern" placeholder="Joins, Sliding window…"></div>
-        <div><label for="difficulty">Difficulty</label><select id="difficulty"><option>n/a</option><option>Easy</option><option>Medium</option><option>Hard</option></select></div>
+        <div><label for="difficulty">Difficulty</label><select id="difficulty"><option value="">Choose…</option><option>Easy</option><option>Medium</option><option>Hard</option></select></div>
       </div>
-      <label for="minutes">Minutes taken <small>(25-minute box)</small></label>
+      <label for="minutes">Minutes taken <small>(25-minute box; hours are worked out from this)</small></label>
       <input id="minutes" type="number" inputmode="numeric" min="1" max="600" placeholder="25">
     </div>
     <div class="only-dsa only-sd" id="resbox">
       <label for="result" id="reslabel">Result</label>
-      <select id="result"><option>n/a</option><option>clean</option><option>hinted</option><option>failed</option></select>
+      <select id="result"><option value="">Choose…</option><option value="first read" id="firstread">first read</option><option>clean</option><option>hinted</option><option>failed</option></select>
       <small id="reshelp"></small>
+      <div id="hintbox" hidden>
+        <label for="hint">Hint <small id="hintreq">(what the hint was)</small></label>
+        <input id="hint" placeholder="Type casting">
+      </div>
     </div>
     <label for="notes">How I solved it / notes</label>
     <textarea id="notes" placeholder="Your approach in a few lines, and what broke or what to remember"></textarea>
-    <button class="go" id="go" type="submit">Log it</button>
+    <button class="go" id="go" type="submit" disabled>Log it</button>
+    <div id="missing" role="status" aria-live="polite"></div>
     <div class="msg" id="msg"></div>
   </form>
 
@@ -149,6 +157,67 @@ function loggedFor(rows, iso) {
     if (h > 0) out[r[1]] = (out[r[1]] || 0) + h;
   }
   return out;
+}
+
+// Same rules as scripts/log_entry.py parse_link
+function parseLink(url) {
+  url = (url || "").trim();
+  if (!url) return null;
+  let u; try { u = new URL(url); } catch (e) { return { bad: true }; }
+  if (!/^https?:$/.test(u.protocol) || u.username || u.password) return { bad: true };
+  const h = u.hostname.toLowerCase(), segs = u.pathname.split("/").filter(Boolean);
+  const on = d => h === d || h.endsWith("." + d);
+  const after = k => { const i = segs.indexOf(k); return i >= 0 && i + 1 < segs.length ? segs[i + 1] : ""; };
+  if (on("stratascratch.com")) {
+    let id = ""; for (const k of ["coding", "coding-question", "question"]) { const v = after(k); if (v) { id = (v.match(/^\d+/) || [v])[0]; break; } }
+    if (!id) { const m = u.pathname.match(/\/(\d{2,})/); id = m ? m[1] : (segs[segs.length - 1] || ""); }
+    return { platform: "StrataScratch", id, kind: "SQL" };
+  }
+  if (on("neetcode.io")) return { platform: "NeetCode", id: after("problems") || segs[segs.length - 1] || "", kind: "Algorithm" };
+  if (on("leetcode.com")) return { platform: "LeetCode", id: after("problems") || segs[segs.length - 1] || "", kind: "Algorithm" };
+  if (on("educative.io")) return { platform: "Educative", id: segs.slice(-2).join("/").toLowerCase(), kind: "" };
+  return { platform: "Other", id: segs[segs.length - 1] || "", kind: "" };
+}
+
+// Same as log_entry.py clean() / parse_hours().
+const EMPTY = new Set(["_no response_", "none", "", "n/a", "auto", "choose…", "choose..."]);
+const isBlank = x => EMPTY.has(String(x == null ? "" : x).trim().toLowerCase());
+function parseHours(raw) {
+  const m = String(raw || "").toLowerCase().replace(/\s/g, "").replace(",", ".").match(/^(\d+\.?\d*|\.\d+)(h|hr|hrs|m|min|mins|minutes)?$/);
+  if (!m) return null;
+  return /^m/.test(m[2] || "") ? Number(m[1]) / 60 : Number(m[1]);
+}
+const FIELD_NAMES = { topic: "Topic", hours: "Hours", link: "Link", platform: "Platform", kind: "Kind", pattern: "Pattern",
+  difficulty: "Difficulty", minutes: "Minutes taken", result: "Result", hint: "Hint", notes_link: "My notes link", notes: "Notes" };
+
+// Same required fields as scripts/log_entry.py. v holds the raw form values; returns {fieldId: message}.
+function validateEntry(key, v) {
+  const e = {}, has = x => !isBlank(x);
+  const need = (id, ok, msg) => { if (!ok) e[id] = msg || "Required"; };
+  need("topic", has(v.topic));
+  need("notes", has(v.notes));
+  if (key === "dsa") {
+    const link = parseLink(v.link);
+    need("link", link && !link.bad, has(v.link) ? "Must be a web link starting with https://" : "Required");
+    need("platform", v.platform !== "Auto" || (link && !link.bad), "Pick the platform");
+    need("kind", v.kind !== "Auto" || (link && link.kind), "Pick the kind (not detected from this link)");
+    need("pattern", has(v.pattern));
+    need("difficulty", has(v.difficulty), "Choose Easy, Medium or Hard");
+    const m = Number(String(v.minutes || "").replace(",", "."));
+    need("minutes", has(v.minutes) && m > 0 && m <= 600, has(v.minutes) ? "Minutes from 1 to 600" : "Required");
+    need("result", ["clean", "hinted", "failed"].includes(v.result), "Choose clean, hinted or failed");
+    if (v.result === "hinted") need("hint", has(v.hint), "What was the hint?");
+  } else {
+    const h = parseHours(v.hours);
+    need("hours", h > 0 && h <= 12, !has(v.hours) ? "Required" : h === null ? "Try 0.5, 1h or 25m" : "Above 0 and at most 12 h");
+  }
+  if (key === "sd") {
+    const link = parseLink(v.link), notes = parseLink(v.notes_link);
+    need("link", link && link.platform === "Educative", has(v.link) ? "Must be an Educative page" : "Required");
+    need("notes_link", notes && !notes.bad, has(v.notes_link) ? "Must be a web link starting with https://" : "Required");
+    need("result", ["first read", "clean", "hinted", "failed"].includes(v.result), "Choose first read, clean, hinted or failed");
+  }
+  return e;
 }
 
 const joinNames = n => n.length < 2 ? n.join("") : n.slice(0, -1).join(", ") + " and " + n[n.length - 1];
@@ -207,8 +276,8 @@ $("repo").value = load("cj_repo") || $("repo").value;
 $("token").value = load("cj_token");
 if (!$("token").value) $("settings").open = true;
 const LABELS = {
-  "DSA": { link: "Problem link", ph: "https://platform.stratascratch.com/coding/10087-…", res: "Result", help: "clean = solved alone in 25 min · hinted = needed a hint · failed = read the solution" },
-  "System design": { link: "Topic link (Educative)", ph: "https://www.educative.io/courses/…/…", res: "Recall", help: "clean = recalled it without notes · hinted = needed a peek · failed = could not recall · n/a = first read (revise in 3 days). This sets your next revision date." }
+  "DSA": { link: "Problem link", ph: "https://platform.stratascratch.com/coding/10087-…", res: "Result", help: "clean = solved alone in 25 min · hinted = needed a hint (say what it was below) · failed = read the solution" },
+  "System design": { link: "Topic link (Educative)", ph: "https://www.educative.io/courses/…/…", res: "Recall", help: "first read = new topic (revise in 3 days) · clean = recalled it without notes · hinted = needed a peek · failed = could not recall. This sets your next revision date." }
 };
 function setLabels() {
   const L = LABELS[track]; if (!L) return;
@@ -220,8 +289,38 @@ function applyTrack(key) {
   track = NAMES[key];
   document.body.classList.toggle("dsa", key === "dsa");
   document.body.classList.toggle("sd", key === "sd");
+  const fr = $("firstread"); fr.disabled = fr.hidden = key !== "sd";
+  if (key !== "sd" && $("result").value === "first read") $("result").value = "";
   setLabels();
+  check();
 }
+const keyOf = name => Object.keys(NAMES).find(k => NAMES[k] === name);
+const formValues = () => Object.fromEntries(["topic", "hours", "link", "platform", "kind", "pattern", "difficulty", "minutes",
+  "result", "hint", "notes_link", "notes"].map(id => [id, $(id).value]));
+const touched = new Set();
+let sending = false, tried = false;
+// Freeze "Log it" until every required field for the track is filled; explain what is missing.
+function check() {
+  const key = keyOf(track), errs = validateEntry(key, formValues());
+  const hinted = key === "dsa" && ["hinted", "failed"].includes($("result").value);
+  $("hintbox").hidden = !hinted;
+  $("hintreq").textContent = $("result").value === "hinted" ? "(required: what the hint was)" : "(optional: what you were missing)";
+  for (const id of Object.keys(FIELD_NAMES)) {
+    const el = $(id);
+    let small = document.getElementById("err-" + id);
+    if (!small) { small = document.createElement("small"); small.className = "err"; small.id = "err-" + id; el.insertAdjacentElement("afterend", small); el.setAttribute("aria-describedby", small.id); }
+    const msg = errs[id] && (touched.has(id) || tried) ? errs[id] : "";
+    small.textContent = msg;
+    el.setAttribute("aria-invalid", msg ? "true" : "false");
+  }
+  const miss = Object.keys(errs).map(id => FIELD_NAMES[id]);
+  $("missing").textContent = miss.length ? "To log this, fill: " + miss.join(", ") : "";
+  $("go").disabled = sending || miss.length > 0 || frozen.some(k => NAMES[k] === track);
+  return errs;
+}
+$("form").addEventListener("input", () => check());
+$("form").addEventListener("change", () => check());
+$("form").addEventListener("focusout", e => { if (e.target.id) { touched.add(e.target.id); check(); } });
 function render() {
   const ps = planState(plan, logRows, $("date").value, chosen, pinned);
   frozen = ps.frozen;
@@ -246,25 +345,6 @@ $("save").onclick = () => { save("cj_repo", $("repo").value.trim()); save("cj_to
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const neutral = v => v.replace(/^(\s*)###/gm, "$1#\u200b##");  // a line starting with ### must not become a form heading
 
-// Same rules as scripts/log_entry.py parse_link
-function parseLink(url) {
-  url = (url || "").trim();
-  if (!url) return null;
-  let u; try { u = new URL(url); } catch (e) { return { bad: true }; }
-  if (!/^https?:$/.test(u.protocol) || u.username || u.password) return { bad: true };
-  const h = u.hostname.toLowerCase(), segs = u.pathname.split("/").filter(Boolean);
-  const on = d => h === d || h.endsWith("." + d);
-  const after = k => { const i = segs.indexOf(k); return i >= 0 && i + 1 < segs.length ? segs[i + 1] : ""; };
-  if (on("stratascratch.com")) {
-    let id = ""; for (const k of ["coding", "coding-question", "question"]) { const v = after(k); if (v) { id = (v.match(/^\d+/) || [v])[0]; break; } }
-    if (!id) { const m = u.pathname.match(/\/(\d{2,})/); id = m ? m[1] : (segs[segs.length - 1] || ""); }
-    return { platform: "StrataScratch", id, kind: "SQL" };
-  }
-  if (on("neetcode.io")) return { platform: "NeetCode", id: after("problems") || segs[segs.length - 1] || "", kind: "Algorithm" };
-  if (on("leetcode.com")) return { platform: "LeetCode", id: after("problems") || segs[segs.length - 1] || "", kind: "Algorithm" };
-  if (on("educative.io")) return { platform: "Educative", id: segs.slice(-2).join("/").toLowerCase(), kind: "" };
-  return { platform: "Other", id: segs[segs.length - 1] || "", kind: "" };
-}
 $("link").addEventListener("input", () => {
   const r = parseLink($("link").value), d = $("detected");
   if (!r) d.textContent = "Paste the link and I'll detect the platform and ID.";
@@ -283,37 +363,36 @@ $("form").addEventListener("submit", async e => {
   e.preventDefault();
   if (!$("token").value.trim()) { $("settings").open = true; return show("Add your token in Settings first.", false); }
   if (frozen.some(k => NAMES[k] === track)) return show(track + " isn't planned on this date. Pick a planned session.", false);
+  tried = true;
+  if (Object.keys(check()).length) return show("Fill the highlighted fields first.", false);
   const dsa = track === "DSA", sd = track === "System design";
   const hours = $("hours").value.trim().replace(",", "."), minutes = $("minutes").value.trim().replace(",", ".");
-  if (hours && !/^\d+(\.\d+)?\s*(h|hr|hrs|m|min|mins|minutes)?$/i.test(hours)) return show("Hours looks wrong. Try 0.5, 1h or 25m.", false);
-  if (minutes && !(Number(minutes) > 0)) return show("Minutes taken must be a positive number.", false);
-  if (!hours && !(dsa && minutes)) return show("Enter Hours" + (dsa ? " or Minutes taken" : "") + ".", false);
-  if ((dsa || sd) && $("link").value.trim() && parseLink($("link").value).bad) return show("The link must start with https://", false);
-  if (sd && $("notes_link").value.trim() && parseLink($("notes_link").value).bad) return show("The notes link must start with https://", false);
   const opt = (v, empty) => (v && v.trim()) ? neutral(v.trim()) : (empty || "_No response_");
-  const body = ["### Date", $("date").value, "### Track", track, "### Hours", opt(hours),
+  const body = ["### Date", $("date").value, "### Track", track, "### Hours", dsa ? "_No response_" : opt(hours),
     "### Topic or problem", opt($("topic").value),
     "### Problem link", (dsa || sd) ? opt($("link").value) : "_No response_",
     "### Platform", dsa ? $("platform").value : "Auto",
     "### Kind", dsa ? $("kind").value : "Auto",
     "### Pattern", dsa ? opt($("pattern").value) : "_No response_",
-    "### Difficulty", dsa ? $("difficulty").value : "n/a",
+    "### Difficulty", dsa ? opt($("difficulty").value) : "_No response_",
     "### Minutes taken", dsa ? opt(minutes) : "_No response_",
-    "### Result", (dsa || sd) ? $("result").value : "n/a",
+    "### Result", (dsa || sd) ? opt($("result").value) : "_No response_",
+    "### Hint", dsa && ["hinted", "failed"].includes($("result").value) ? opt($("hint").value) : "_No response_",
     "### My notes link", sd ? opt($("notes_link").value) : "_No response_",
     "### How I solved it / notes", opt($("notes").value)].join("\n\n");
-  $("go").disabled = true; $("go").textContent = "Logging…";
+  sending = true; check(); $("go").textContent = "Logging…";
   try {
     const r = await api("/issues", { method: "POST", body: JSON.stringify({ title: "log", body, labels: ["log"] }) });
     let j = {}; try { j = JSON.parse(await r.text()); } catch (e) {}
     if (!r.ok) throw new Error(j.message || r.status);
     show("Sent" + (j.number ? " (issue #" + j.number + ")" : "") + ". The dashboard updates in about a minute.", true);
-    $("date").value = today(); $("date").max = today(); pinned = null; render();
-    ["hours", "topic", "notes", "link", "pattern", "minutes", "notes_link"].forEach(id => { $(id).value = ""; });
-    $("platform").value = "Auto"; $("kind").value = "Auto"; $("difficulty").value = "n/a"; $("result").value = "n/a"; $("link").dispatchEvent(new Event("input"));
+    ["hours", "topic", "notes", "link", "pattern", "minutes", "notes_link", "hint", "difficulty", "result"].forEach(id => { $(id).value = ""; });
+    $("platform").value = "Auto"; $("kind").value = "Auto"; $("link").dispatchEvent(new Event("input"));
+    touched.clear(); tried = false;
+    $("date").value = today(); $("date").max = today(); pinned = null;
     setTimeout(refresh, 45000);
   } catch (err) { show("Could not send: " + err.message, false); }
-  $("go").disabled = false; $("go").textContent = "Log it";
+  sending = false; $("go").textContent = "Log it"; render();
 });
 
 async function raw(path) {
